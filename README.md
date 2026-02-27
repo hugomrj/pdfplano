@@ -1,12 +1,3 @@
-# pdf-ocr-finder
-![Python](https://img.shields.io/badge/python-3.x-blue)
-![License](https://img.shields.io/badge/license-MIT-green)
-
-
-
-Herramienta ligera en Python para buscar texto dentro de PDFs escaneados usando OCR.
-
-Pensado como módulo de apoyo para automatizaciones o scripts internos.
 
 ---
 
