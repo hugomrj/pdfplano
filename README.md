@@ -24,12 +24,7 @@ pip install -r requirements.txt
 
 Ejemplo de uso
 ```python
-from pdf_ocr_finder.search import search_in_pdf
-
-resultado = search_in_pdf(
-    pdf_path="documento.pdf",
-    pattern=r"16\s*%"
-)
+    python main.py
 ```
 
 
