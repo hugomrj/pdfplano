@@ -19,3 +19,16 @@ build/
 
 # Archivos temporales
 *.log
+
+# Datos extraídos (PDF, TXT, CSV)
+*.pdf
+*.txt
+*.csv
+
+# Base de datos SQLite
+*.db
+*.sqlite3
+
+# Carpetas de datos específicas si las creas
+data/
+db/
