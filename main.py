@@ -3,7 +3,6 @@ PROYECTO: Extractor de Ingresos del Personal (MEC)
 MOTOR: Linux (OCRmyPDF) + Python (pdfplumber)
 REQUERIMIENTOS: sudo apt install ocrmypdf tesseract-ocr-spa unpaper
 """
-
 from src.lector import procesar_documento_completo  # Nombre de la nueva función orquestadora
 from src.conversor import conversor_csv
 from src.exportador import csv_a_excel 
