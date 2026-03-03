@@ -6,67 +6,87 @@ def conversor_csv(ruta_txt):
     ruta_csv = ruta_txt.replace(".txt", ".csv")
     
     with open(ruta_txt, "r", encoding="utf-8") as f:
-        # Cargamos líneas ignorando las que dicen "Página" o están vacías
-        lineas = [l.strip() for l in f.readlines() if l.strip() and "Página" not in l]
+        lineas = [l.strip() for l in f.readlines() if l.strip()]
 
-    datos_limpios = []
+    datos_finales = []
+    regex_numeros = r"(\d{1,3}(?:\.\d{3}){1,2})" 
+    regex_fecha = r"(\d{2}/\d{2}/\d{4})"
+
     i = 0
     while i < len(lineas):
         linea = lineas[i]
         
-        # Buscamos el patrón de Cédula (ej: 2.584.593)
-        match_cedula = re.search(r"(\d{1,3}(?:\.\d{3}){2})", linea)
-        
-        if match_cedula:
+        if "Página" in linea or "ANEXO" in linea or "Exped." in linea or "Ordenl" in linea:
+            i += 1
+            continue
+
+        matches_numeros = re.findall(regex_numeros, linea)
+        match_fecha = re.search(regex_fecha, linea)
+
+        if len(matches_numeros) >= 2 and match_fecha:
             try:
-                cedula = match_cedula.group(1)
+                # 1. Cédula y Fecha
+                cedula_con_puntos = matches_numeros[1]
+                cedula = cedula_con_puntos.replace(".", "")
+                fecha = match_fecha.group(1)
                 
-                # Buscamos la fecha (01/08/2025) como ancla
-                match_fecha = re.search(r"\d{2}/\d{2}/\d{4}", linea)
-                
-                if match_fecha:
-                    pos_cedula_fin = linea.find(cedula) + len(cedula)
-                    pos_fecha_inicio = match_fecha.start()
-                    pos_fecha_fin = match_fecha.end()
-                    
-                    # El nombre está entre la cédula y la fecha
-                    nombre = linea[pos_cedula_fin:pos_fecha_inicio].strip()
-                    
-                    # La escuela empieza después de la fecha + algunos códigos 
-                    # (saltamos unos 15 caracteres para evitar los IDs numéricos pegados a la fecha)
-                    resto_linea = linea[pos_fecha_fin:].strip()
-                    escuela = re.sub(r"^\d+\s+\d+\s+", "", resto_linea) # Limpiamos códigos iniciales
-                else:
-                    nombre = "Error en formato"
-                    escuela = "Error en formato"
+                # 2. Nombre
+                idx_cedula_fin = linea.find(cedula_con_puntos) + len(cedula_con_puntos)
+                idx_fecha_inicio = match_fecha.start()
+                nombre = linea[idx_cedula_fin:idx_fecha_inicio].strip()
 
-                # --- Línea 2: Cargo (justo debajo) ---
-                cargo_limpio = "No encontrado"
+                # 3. Bloque después de la fecha
+                bloque_final = linea[match_fecha.end():].strip()
+                
+                # --- NUEVO: CPuesto (Primer bloque numérico después de la fecha) ---
+                match_puesto = re.search(r"^(\d+)", bloque_final)
+                cpuesto = match_puesto.group(1) if match_puesto else ""
+                
+                # Asignación: último número con puntos de la línea
+                match_monto = re.search(r"(\d{1,3}(?:\.\d{3}){1,2})$", linea)
+                asignacion = match_monto.group(1).replace(".", "") if match_monto else ""
+                
+                # Categoría
+                match_cat = re.search(r"\b(LCE|ZZ\d|LCH|Z\d\d|ZZ\d\d)\b", bloque_final)
+                categoria = match_cat.group(1) if match_cat else ""
+                
+                # Turno
+                match_turno = re.search(r"\s(M|T|MT|N)\s", bloque_final)
+                turno = match_turno.group(1) if match_turno else ""
+
+                # 4. Capturar el Orden
+                orden = ""
                 if i + 1 < len(lineas):
-                    linea_siguiente = lineas[i+1]
-                    # Si la línea siguiente NO tiene otra cédula, es el cargo
-                    if not re.search(r"(\d{1,3}(?:\.\d{3}){2})", linea_siguiente):
-                        # Limpiamos el número de orden y el texto repetitivo
-                        cargo_limpio = re.sub(r"^\d+\s+INTERINO SIN CONCURSO\s+-\s+-\s+", "", linea_siguiente)
-                        i += 1 # Consumimos la línea del cargo
+                    proxima = lineas[i+1]
+                    match_orden = re.match(r"^(\d+)\s?º?$", proxima)
+                    if match_orden:
+                        orden = match_orden.group(1)
+                        i += 1 
 
-                datos_limpios.append({
+                datos_finales.append({
+                    "Orden": orden,
                     "Cedula": cedula,
                     "Nombre": nombre,
-                    "Escuela": escuela,
-                    "Cargo": cargo_limpio
+                    "Antiguedad": fecha,
+                    "CPuesto": cpuesto, # <--- Nuevo campo
+                    "Turno": turno,
+                    "Categoria": categoria,
+                    "Asignacion": asignacion,
+                    "Raw": bloque_final[:50] 
                 })
 
             except Exception as e:
-                print(f"Error procesando registro en línea {i}: {e}")
-        
+                print(f"⚠️ Error procesando línea: {linea[:30]}... -> {e}")
+
         i += 1
 
-    # Guardar resultados
-    if datos_limpios:
-        columnas = ["Cedula", "Nombre", "Escuela", "Cargo"]
-        with open(ruta_csv, "w", encoding="utf-8", newline="") as f_csv:
-            writer = csv.DictWriter(f_csv, fieldnames=columnas)
+    if datos_finales:
+        # Definimos las columnas incluyendo el nuevo campo CPuesto
+        columnas = ["Orden", "Cedula", "Nombre", "Antiguedad", "CPuesto", "Turno", "Categoria", "Asignacion", "Raw"]
+        
+        with open(ruta_csv, "w", encoding="utf-8", newline="") as f:
+            # delimiter=';' para que Excel lo abra bien por defecto
+            writer = csv.DictWriter(f, fieldnames=columnas, delimiter=';', extrasaction='ignore')
             writer.writeheader()
-            writer.writerows(datos_limpios)
-        print(f"✓ Conversión exitosa: {len(datos_limpios)} registros en {ruta_csv}")
+            writer.writerows(datos_finales)
+        print(f"✅ Proceso completo: {len(datos_finales)} registros en {ruta_csv}")

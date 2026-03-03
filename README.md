@@ -24,7 +24,7 @@ pip install -r requirements.txt
 
 Ejemplo de uso
 ```python
-    python main.py
+python main.py
 ```
 
 
